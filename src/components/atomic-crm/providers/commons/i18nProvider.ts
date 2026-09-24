@@ -6,6 +6,7 @@ import { raSupabaseEnglishMessages } from "ra-supabase-language-english";
 import { raSupabaseFrenchMessages } from "ra-supabase-language-french";
 import { englishCrmMessages } from "./englishCrmMessages";
 import { frenchCrmMessages } from "./frenchCrmMessages";
+import { russianCrmMessages } from "./russianCrmMessages";
 
 const raSupabaseEnglishMessagesOverride = {
   "ra-supabase": {
@@ -24,10 +25,17 @@ const raSupabaseFrenchMessagesOverride = {
   },
 };
 
+const raSupabaseRussianMessagesOverride = {
+  "ra-supabase": {
+    auth: {
+      password_reset: "Проверьте почту для сброса пароля.",
+    },
+  },
+};
+
 const englishCatalog = mergeTranslations(
   englishMessages,
   raSupabaseEnglishMessages,
-  raSupabaseEnglishMessagesOverride,
   englishCrmMessages,
 );
 
@@ -39,7 +47,13 @@ const frenchCatalog = mergeTranslations(
   frenchCrmMessages,
 );
 
-export const getInitialLocale = (): "en" | "fr" => {
+const russianCatalog = mergeTranslations(
+  englishCatalog,
+  russianCrmMessages,
+  raSupabaseRussianMessagesOverride,
+);
+
+export const getInitialLocale = (): "en" | "fr" | "ru" => {
   if (typeof navigator === "undefined") {
     return "en";
   }
@@ -47,6 +61,9 @@ export const getInitialLocale = (): "en" | "fr" => {
   const browserLocale = navigator.languages?.[0] ?? navigator.language;
   if (browserLocale?.toLowerCase().startsWith("fr")) {
     return "fr";
+  }
+  if (browserLocale?.toLowerCase().startsWith("ru")) {
+    return "ru";
   }
 
   return "en";
@@ -57,12 +74,16 @@ export const i18nProvider = polyglotI18nProvider(
     if (locale === "fr") {
       return frenchCatalog;
     }
+    if (locale === "ru") {
+      return russianCatalog;
+    }
     return englishCatalog;
   },
   getInitialLocale(),
   [
     { locale: "en", name: "English" },
     { locale: "fr", name: "Français" },
+    { locale: "ru", name: "Русский" },
   ],
   { allowMissing: true },
 );

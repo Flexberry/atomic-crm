@@ -1,0 +1,68 @@
+# ============================================================================
+# Atomic CRM — Docker Compose stack.
+#
+# Two services, nothing installed or run on the host:
+#
+#   supabase   docker:dind + Node + Supabase CLI. On first start it lazily
+#              installs the stack by following the project's own official steps
+#              (npm install, npx supabase start, migrations), orchestrating its
+#              entire stack inside a NESTED docker daemon (DinD). No host socket.
+#
+#   frontend   Node + Vite dev server, pointed at the Supabase API via the
+#              shared /shared/.env.frontend written by the supabase service.
+#
+# Usage (from the docker/ directory):
+#   docker compose up -d --build
+#   docker compose logs -f supabase        # watch the lazy install
+#   open http://localhost:5173
+#
+# Ports:
+#   5173 frontend, 54321 API, 54322 Postgres, 54323 Studio, 54324 Inbucket
+# ============================================================================
+name: atomic-crm
+
+services:
+  supabase:
+    build:
+      context: ./supabase
+    container_name: atomic-crm-supabase
+    # Required by Docker-in-Docker's inner daemon (dockerd). This is the
+    # sandboxed nested daemon, NOT the host daemon — no host access is granted.
+    privileged: true
+    environment:
+      REPO_DIR: /workspace
+      SHARED_DIR: /shared
+      API_EXTERNAL_URL: http://localhost:54321
+      # Keep Supabase CLI / npm fully non-interactive (no prompts that would
+      # hang an unattended container).
+      CI: "true"
+    volumes:
+      - ..:/workspace:cached        # the repo (source + supabase/ config)
+      - docker-data:/var/lib/docker # inner daemon's containers/images
+      - shared:/shared              # connection info for the frontend
+    ports:
+      - "54321:54321"   # Supabase API (REST)
+      - "54322:54322"   # Postgres
+      - "54323:54323"   # Supabase Studio
+      - "54324:54324"   # Inbucket (email)
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: atomic-crm-frontend
+    environment:
+      REPO_DIR: /app
+      SHARED_DIR: /shared
+    volumes:
+      - ..:/app:cached
+      - shared:/shared
+    ports:
+      - "5173:5173"
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+volumes:
+  docker-data:   # inner Docker daemon state (survives restarts -> reuse stack)
+  shared:        # .env.frontend hand-off between services
